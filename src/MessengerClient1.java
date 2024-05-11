@@ -1,10 +1,16 @@
+// MessengerClient1.java
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
 import java.io.*;
 import java.net.*;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.Base64;
 
 public class MessengerClient1 {
 
@@ -152,26 +158,42 @@ public class MessengerClient1 {
         }
     }
 
-    private void sendFile() {
-        JFileChooser fileChooser = new JFileChooser();
-        int result = fileChooser.showOpenDialog(frame);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File selectedFile = fileChooser.getSelectedFile();
-            String filePath = selectedFile.getAbsolutePath();
-            out.println("FILE:" + filePath);
+private void sendFile() {
+    JFileChooser fileChooser = new JFileChooser();
+    int result = fileChooser.showOpenDialog(frame);
+    if (result == JFileChooser.APPROVE_OPTION) {
+        File selectedFile = fileChooser.getSelectedFile();
+        try {
+            FileInputStream fileInputStream = new FileInputStream(selectedFile);
+            byte[] fileData = new byte[(int) selectedFile.length()];
+            fileInputStream.read(fileData);
+            out.println("FILE:" + selectedFile.getName()); // Send the file name
+            out.println(Base64.getEncoder().encodeToString(fileData)); // Send the file data
+            fileInputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
+}
 
-    private void sendImage() {
-        JFileChooser fileChooser = new JFileChooser();
-        int result = fileChooser.showOpenDialog(frame);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File selectedFile = fileChooser.getSelectedFile();
-            String imagePath = selectedFile.getAbsolutePath();
-            out.println("IMAGE:" + imagePath);
+private void sendImage() {
+    JFileChooser fileChooser = new JFileChooser();
+    int result = fileChooser.showOpenDialog(frame);
+    if (result == JFileChooser.APPROVE_OPTION) {
+        File selectedFile = fileChooser.getSelectedFile();
+        try {
+            BufferedImage bufferedImage = ImageIO.read(selectedFile);
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            ImageIO.write(bufferedImage, "png", byteArrayOutputStream);
+            byte[] imageData = byteArrayOutputStream.toByteArray();
+            out.println("IMAGE:" + selectedFile.getName()); // Send the image name
+            out.println(Base64.getEncoder().encodeToString(imageData)); // Send the image data
+            byteArrayOutputStream.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
-
+}
     private void addMessage(String message) {
         messageBox.append(message + "\n");
     }
@@ -184,16 +206,14 @@ public class MessengerClient1 {
                     String[] parts = message.split("~");
                     String username = parts[0].substring(5);
                     String fileName = parts[1];
-                    addMessage(username + ": " + fileName);
+                    byte[] fileData = Base64.getDecoder().decode(in.readLine());
+                    receiveFile(username, fileName, fileData);
                 } else if (message.startsWith("IMAGE:")) {
                     String[] parts = message.split("~");
                     String username = parts[0].substring(6);
-                    String imagePath = parts[1];
-                    addMessage(username + ": " + imagePath);
-                } else if (message.equals("SAVE_FILE")) {
-                    saveFile();
-                } else if (message.equals("SAVE_IMAGE")) {
-                    saveImage();
+                    String imageName = parts[1];
+                    byte[] imageData = Base64.getDecoder().decode(in.readLine());
+                    receiveImage(username, imageName, imageData);
                 } else {
                     addMessage(message);
                 }
@@ -203,42 +223,70 @@ public class MessengerClient1 {
         }
     }
 
-    private void saveFile() {
-        JFileChooser fileChooser = new JFileChooser();
-        int result = fileChooser.showSaveDialog(frame);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File fileToSave = fileChooser.getSelectedFile();
-            try {
-                FileOutputStream fos = new FileOutputStream(fileToSave);
-                InputStream is = clientSocket.getInputStream();
-                byte[] buffer = new byte[1024];
-                int bytesRead;
-                while ((bytesRead = is.read(buffer)) != -1) {
-                    fos.write(buffer, 0, bytesRead);
-                }
-                fos.close();
-                JOptionPane.showMessageDialog(frame, "File saved successfully", "File Saved", JOptionPane.INFORMATION_MESSAGE);
-            } catch (IOException e) {
-                JOptionPane.showMessageDialog(frame, "Error saving file: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-    private void receiveImage(String username, String imagePath) {
+    private void receiveFile(String username, String fileName, byte[] fileData) {
         try {
-            // Load the image from the specified path
-            receivedImage = ImageIO.read(new File(imagePath));
+            // Save the file data to a temporary file
+            File tempFile = File.createTempFile("received", null);
+            FileOutputStream fileOutputStream = new FileOutputStream(tempFile);
+            fileOutputStream.write(fileData);
+            fileOutputStream.close();
 
-            // Display the image in a JOptionPane dialog
-            ImageIcon imageIcon = new ImageIcon(receivedImage);
-            JLabel label = new JLabel(imageIcon);
-            JOptionPane.showMessageDialog(frame, label, "Image received from " + username, JOptionPane.INFORMATION_MESSAGE);
+            // Display the message in the message box
+            addMessage(username + " sent a file: " + fileName);
 
+            // Provide an option to open or save the file
+            int choice = JOptionPane.showConfirmDialog(frame, "Do you want to open or save the file?", "File Received", JOptionPane.YES_NO_OPTION);
+            if (choice == JOptionPane.YES_OPTION) {
+                // Open the file
+                Desktop.getDesktop().open(tempFile);
+            } else {
+                // Save the file
+                JFileChooser fileChooser = new JFileChooser();
+                fileChooser.setSelectedFile(new File(fileName));
+                int result = fileChooser.showSaveDialog(frame);
+                if (result == JFileChooser.APPROVE_OPTION) {
+                    File selectedFile = fileChooser.getSelectedFile();
+                    Files.copy(tempFile.toPath(), selectedFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private void saveImage() {
+    private void receiveImage(String username, String imageName, byte[] imageData) {
+        try {
+            // Decode the Base64-encoded image data
+            byte[] decodedImageData = Base64.getDecoder().decode(imageData);
+
+            // Convert the decoded byte array to an Image
+            Image receivedImage = ImageIO.read(new ByteArrayInputStream(decodedImageData));
+
+            // Scale the image to fit within the chat window
+            int width = receivedImage.getWidth(null);
+            int height = receivedImage.getHeight(null);
+            int scaledWidth = width > 200 ? 200 : width; // Limit width to 200 pixels
+            int scaledHeight = height * scaledWidth / width; // Maintain aspect ratio
+            Image scaledImage = receivedImage.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
+
+            // Convert the scaled image to a Base64-encoded string
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write((BufferedImage) scaledImage, "png", baos);
+            String encodedImage = Base64.getEncoder().encodeToString(baos.toByteArray());
+
+            // Construct HTML content to display the image
+            String htmlContent = "<html><b>" + username + " sent an image:</b><br>" +
+                    "<img src='data:image/png;base64," + encodedImage + "'/></html>";
+
+            // Append the HTML content to the messageBox JTextArea
+            messageBox.setText(messageBox.getText() + htmlContent + "\n");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    private void saveImage(byte[] imageData) {
         // Implement the logic to save the received image
         if (receivedImage != null) {
             // Use receivedImage to save the image
@@ -259,7 +307,16 @@ public class MessengerClient1 {
             JOptionPane.showMessageDialog(frame, "No image received", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
-
+//    private void receiveImage(String username, String imageName, byte[] imageData) {
+//        try {
+//            // Decode the image data and display it in a dialog
+//            ImageIcon imageIcon = new ImageIcon(imageData);
+//            JLabel label = new JLabel(imageIcon);
+//            JOptionPane.showMessageDialog(frame, label, "Image received from " + username, JOptionPane.PLAIN_MESSAGE);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(new Runnable() {

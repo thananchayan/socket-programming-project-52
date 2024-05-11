@@ -1,3 +1,5 @@
+// MessengerServer1.java
+
 import java.io.*;
 import java.net.*;
 import java.util.*;
@@ -6,7 +8,6 @@ public class MessengerServer1 {
 
     private static final String HOST = "127.0.0.1";
     private static final int PORT = 1234;
-    private static final int LISTENER_LIMIT = 5;
     private static List<ClientHandler> activeClients = new ArrayList<>();
 
     public static void main(String[] args) {
@@ -60,10 +61,14 @@ public class MessengerServer1 {
                 while ((message = in.readLine()) != null) {
                     if (message.startsWith("FILE:")) {
                         String fileName = message.substring(5);
-                        broadcastFile(username, fileName);
+                        String fileData = in.readLine();
+                        byte[] decodedFileData = Base64.getDecoder().decode(fileData);
+                        broadcastFile(username, fileName, decodedFileData);
                     } else if (message.startsWith("IMAGE:")) {
-                        String imagePath = message.substring(6);
-                        broadcastImage(username, imagePath);
+                        String imageName = message.substring(6);
+                        String imageData = in.readLine();
+                        byte[] decodedImageData = Base64.getDecoder().decode(imageData);
+                        broadcastImage(username, imageName, decodedImageData);
                     } else {
                         sendToAllClients(username + "~" + message);
                     }
@@ -93,19 +98,34 @@ public class MessengerServer1 {
             out.println(message);
         }
 
-        private void broadcastFile(String username, String fileName) throws IOException {
-            String fileMessage = "FILE:" + username + "~" + fileName;
-            for (ClientHandler clientHandler : activeClients) {
-                clientHandler.sendMessage(fileMessage);
-                clientHandler.sendMessage("SAVE_FILE"); // Send a separate message for save option
-            }
+//        private void broadcastFile(String username, String fileName) throws IOException {
+//            String fileMessage = "FILE:" + username + "~" + fileName;
+//            for (ClientHandler clientHandler : activeClients) {
+//                clientHandler.sendMessage(fileMessage);
+//            }
+//        }
+private void broadcastFile(String username, String fileName, byte[] fileData) throws IOException {
+    for (ClientHandler clientHandler : activeClients) {
+        if (clientHandler != this) {
+            clientHandler.sendMessage("FILE:" + username + "~" + fileName); // Send the file name
+            clientHandler.sendMessage(Base64.getEncoder().encodeToString(fileData)); // Send the file data
         }
+    }
+}
 
-        private void broadcastImage(String username, String imagePath) throws IOException {
-            String imageMessage = "IMAGE:" + username + "~" + imagePath;
+//        private void broadcastImage(String username, String imagePath) throws IOException {
+//            String imageMessage = "IMAGE:" + username + "~" + imagePath;
+//            for (ClientHandler clientHandler : activeClients) {
+//                clientHandler.sendMessage(imageMessage);
+//            }
+//        }
+
+        private void broadcastImage(String username, String imageName, byte[] imageData) throws IOException {
             for (ClientHandler clientHandler : activeClients) {
-                clientHandler.sendMessage(imageMessage);
-                clientHandler.sendMessage("SAVE_IMAGE"); // Send a separate message for save option
+                if (clientHandler != this) {
+                    clientHandler.sendMessage("IMAGE:" + username + "~" + imageName); // Send the image name
+                    clientHandler.sendMessage(Base64.getEncoder().encodeToString(imageData)); // Send the image data
+                }
             }
         }
     }
