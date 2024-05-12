@@ -3,6 +3,7 @@
 import java.io.*;
 import java.net.*;
 import java.util.*;
+import java.io.Serializable;
 
 public class MessengerServer1 {
 
@@ -40,9 +41,14 @@ public class MessengerServer1 {
         private final Socket clientSocket;
         private PrintWriter out;
         private BufferedReader in;
+        private String username;
 
         public ClientHandler(Socket clientSocket) {
             this.clientSocket = clientSocket;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
         }
 
         @Override
@@ -52,6 +58,7 @@ public class MessengerServer1 {
                 out = new PrintWriter(clientSocket.getOutputStream(), true);
                 String username = in.readLine();
                 if (username != null && !username.isEmpty()) {
+                    this.setUsername(username); // Set the username
                     System.out.println(username + " added to the chat");
                     sendToAllClients("SERVER~" + username + " added to the chat");
                 } else {
@@ -98,12 +105,7 @@ public class MessengerServer1 {
             out.println(message);
         }
 
-//        private void broadcastFile(String username, String fileName) throws IOException {
-//            String fileMessage = "FILE:" + username + "~" + fileName;
-//            for (ClientHandler clientHandler : activeClients) {
-//                clientHandler.sendMessage(fileMessage);
-//            }
-//        }
+
 private void broadcastFile(String username, String fileName, byte[] fileData) throws IOException {
     for (ClientHandler clientHandler : activeClients) {
         if (clientHandler != this) {
@@ -113,20 +115,41 @@ private void broadcastFile(String username, String fileName, byte[] fileData) th
     }
 }
 
-//        private void broadcastImage(String username, String imagePath) throws IOException {
-//            String imageMessage = "IMAGE:" + username + "~" + imagePath;
-//            for (ClientHandler clientHandler : activeClients) {
-//                clientHandler.sendMessage(imageMessage);
-//            }
-//        }
+
+
+        public class DataObject implements Serializable {
+            private String imageName;
+            private byte[] imageData;
+
+            public DataObject(String imageName, byte[] imageData) {
+                this.imageName = imageName;
+                this.imageData = imageData;
+            }
+
+            public String getImageName() {
+                return imageName;
+            }
+
+            public byte[] getImageData() {
+                return imageData;
+            }
+        }
+
 
         private void broadcastImage(String username, String imageName, byte[] imageData) throws IOException {
+            DataObject dataObject = new DataObject(imageName, imageData);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ObjectOutputStream oos = new ObjectOutputStream(baos);
+            oos.writeObject(dataObject);
+            oos.close();
+            String base64DataObject = Base64.getEncoder().encodeToString(baos.toByteArray());
             for (ClientHandler clientHandler : activeClients) {
                 if (clientHandler != this) {
-                    clientHandler.sendMessage("IMAGE:" + username + "~" + imageName); // Send the image name
-                    clientHandler.sendMessage(Base64.getEncoder().encodeToString(imageData)); // Send the image data
+                    clientHandler.sendMessage("IMAGE:" + username); // Send the username
+                    clientHandler.sendMessage(base64DataObject); // Send the DataObject
                 }
             }
         }
+
     }
 }
