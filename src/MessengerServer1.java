@@ -1,4 +1,3 @@
-// MessengerServer1.java
 
 import java.io.*;
 import java.net.*;
@@ -89,6 +88,7 @@ public class MessengerServer1 {
                     clientSocket.close();
                     activeClients.remove(this);
                     System.out.println("Client disconnected");
+                    sendToAllClients("SERVER~" + username + " left the chat");
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -109,8 +109,8 @@ public class MessengerServer1 {
 private void broadcastFile(String username, String fileName, byte[] fileData) throws IOException {
     for (ClientHandler clientHandler : activeClients) {
         if (clientHandler != this) {
-            clientHandler.sendMessage("FILE:" + username + "~" + fileName); // Send the file name
-            clientHandler.sendMessage(Base64.getEncoder().encodeToString(fileData)); // Send the file data
+            clientHandler.sendMessage("FILE:" + username + "~" + fileName);
+            clientHandler.sendMessage(Base64.getEncoder().encodeToString(fileData));
         }
     }
 }
@@ -145,8 +145,8 @@ private void broadcastFile(String username, String fileName, byte[] fileData) th
             String base64DataObject = Base64.getEncoder().encodeToString(baos.toByteArray());
             for (ClientHandler clientHandler : activeClients) {
                 if (clientHandler != this) {
-                    clientHandler.sendMessage("IMAGE:" + username); // Send the username
-                    clientHandler.sendMessage(base64DataObject); // Send the DataObject
+                    clientHandler.sendMessage("IMAGE:" + username);
+                    clientHandler.sendMessage(base64DataObject);
                 }
             }
         }

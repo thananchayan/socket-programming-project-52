@@ -1,8 +1,6 @@
-import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
-import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.*;
 import java.nio.file.Files;
@@ -11,7 +9,7 @@ import java.util.Base64;
 
 public class MessengerClient1 {
 
-    private static final String HOST = "127.0.0.1";
+    private static final String HOST = "192.168.174.95";
     private static final int PORT = 1234;
 
     private static final Color DARK_BLUE = new Color(36, 52, 71);
@@ -31,7 +29,6 @@ public class MessengerClient1 {
     private JTextArea messageBox;
     private JTextField messageTextField;
     private JTextField usernameTextField;
-    private Image receivedImage;
 
     public MessengerClient1() {
         frame = new JFrame("Messenger Client");
@@ -160,8 +157,8 @@ public class MessengerClient1 {
             FileInputStream fileInputStream = new FileInputStream(file);
             byte[] fileData = new byte[(int) file.length()];
             fileInputStream.read(fileData);
-            out.println("FILE:" + file.getName()); // Send the file name
-            out.println(Base64.getEncoder().encodeToString(fileData)); // Send the file data
+            out.println("FILE:" + file.getName());
+            out.println(Base64.getEncoder().encodeToString(fileData));
             fileInputStream.close();
             addMessage("[You] sent a file: " + file.getName());
         } catch (IOException e) {
